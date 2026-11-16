@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Reps">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<title>Daily Reps</title>
+<style>
+/* VOICE everyday habit tracker: upbeat, calm, quick to use mid-workout
+   IDEA activity rings: one ring per exercise that closes as the day's reps add up
+   PICTURE concentric rings in each exercise's colour beside the day's percent; a month of filled circles in History
+   COLOUR iOS grouped grey ground, white cards, orange-to-pink accent, one system colour per exercise
+   TYPE system UI for words, the rounded system face for every number
+   LAYOUT one phone column: title, rings + summary, exercise cards, tab bar; the same column centred on wide screens */
+:root{--bg:#f2f2f7;--card:#fff;--ink:#111114;--sub:#6c6c74;--line:rgba(60,60,67,.14);--track:rgba(60,60,67,.1);--tab:rgba(248,248,250,.88);--scrim:rgba(0,0,0,.32);--toast:#1c1c1e;--acc:#f26a1b;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#000;--card:#1c1c1e;--ink:#f4f4f6;--sub:#9b9ba3;--line:rgba(255,255,255,.12);--track:rgba(255,255,255,.12);--tab:rgba(22,22,24,.88);--scrim:rgba(0,0,0,.6);--toast:#3a3a3c;--acc:#ff8a3d;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#000;--card:#1c1c1e;--ink:#f4f4f6;--sub:#9b9ba3;--line:rgba(255,255,255,.12);--track:rgba(255,255,255,.12);--tab:rgba(22,22,24,.88);--scrim:rgba(0,0,0,.6);--toast:#3a3a3c;--acc:#ff8a3d;color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:16px/1.4 -apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif;overflow-x:clip;-webkit-text-size-adjust:100%;padding-top:env(safe-area-inset-top)}
+body.lock{overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button:disabled{cursor:default}
+.r{font-family:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.ico{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ico.fill path{fill:currentColor}
+.wrap{max-width:560px;margin:0 auto;padding:4px max(16px,env(safe-area-inset-right)) calc(100px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 2px 12px}
+h1{font-size:34px;line-height:1.05;letter-spacing:-.02em;margin:0;font-weight:800}
+.icon-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--acc)}
+.icon-btn svg{width:22px;height:22px}
+.card{background:var(--card);border-radius:22px}
+.warn{padding:12px 14px;border-radius:16px;background:color-mix(in srgb,#ff9500 18%,var(--card));font-size:14px;margin-bottom:12px}
+.sum{display:grid;grid-template-columns:minmax(0,148px) minmax(0,1fr);gap:18px;align-items:center;padding:18px;margin-bottom:12px}
+.rings{position:relative;aspect-ratio:1}
+.rings svg{width:100%;height:100%;display:block}
+.rings .tr{fill:none;stroke-opacity:.17}
+.rings .arc{fill:none;stroke-linecap:round;transition:stroke-dasharray .6s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.rings .ck{position:absolute;inset:0;display:grid;place-items:center;color:var(--acc);opacity:0;transform:scale(.5);transition:opacity .3s,transform .4s cubic-bezier(.3,1.6,.5,1)}
+.rings .ck svg{width:24%;height:24%;stroke-width:3.2}
+.rings.all .ck{opacity:1;transform:none}
+.date{color:var(--sub);font-size:15px}
+.pct{font-size:clamp(44px,13vw,56px);font-weight:800;line-height:1;letter-spacing:-.03em;margin:4px 0 6px;white-space:nowrap}
+.pct small{font-size:.42em;font-weight:700;margin-left:2px;color:var(--sub)}
+.sum-line{font-weight:650;font-size:16px}
+.streak{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:15px;font-weight:650;color:var(--acc)}
+.streak.none{color:var(--sub)}
+.streak svg{width:18px;height:18px;flex:none}
+.ex{padding:16px;margin-bottom:12px}
+.ex.pop{animation:pop .55s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{35%{transform:scale(1.025)}}
+.ex-top{display:flex;align-items:center;gap:12px}
+.badge{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--on);background:var(--c);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 78%,#fff),var(--c))}
+.badge svg{width:25px;height:25px}
+.badge .i2{display:none}
+.ex.done .badge .i1{display:none}
+.ex.done .badge .i2{display:block}
+.ex-name{flex:1;display:flex;flex-direction:column}
+.ex-name b{font-size:17px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.left{font-size:14px;color:var(--sub)}
+.ex.done .left{color:var(--cx);font-weight:650}
+.num{display:flex;align-items:baseline;gap:1px;min-height:44px;padding:0 2px;white-space:nowrap}
+.num .n{font-size:32px;font-weight:800;letter-spacing:-.02em}
+.num .g{font-size:15px;color:var(--sub);font-weight:650}
+.bar{height:8px;border-radius:9px;background:color-mix(in srgb,var(--c) 16%,transparent);margin:12px 0 14px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:9px;background:var(--c);transition:width .45s cubic-bezier(.2,.8,.2,1)}
+.btns{display:flex;gap:8px}
+.b{flex:1;height:46px;border-radius:13px;font-weight:750;font-size:16px;color:var(--cx);background:color-mix(in srgb,var(--c) 15%,transparent);display:grid;place-items:center;transition:transform .12s,opacity .2s}
+.b.f{background:var(--c);color:var(--on)}
+.b.sq{flex:0 0 48px}
+.b:active{transform:scale(.92)}
+.b:disabled{opacity:.35}
+.b svg{width:20px;height:20px}
+.b.tapb{font-size:14px;font-weight:800}
+.empty{text-align:center;padding:36px 20px}
+.empty p{color:var(--sub);margin:6px 0 16px}
+.solid{min-height:46px;padding:0 22px;border-radius:23px;background:var(--acc);color:#fff;font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.tile{padding:14px}
+.tile i{display:block;width:20px;height:20px}
+.tile svg{width:20px;height:20px}
+.tile b{display:block;font-size:30px;font-weight:800;line-height:1.1;margin-top:6px}
+.tile span{font-size:13px;color:var(--sub)}
+.cal{padding:14px 14px 16px;margin-bottom:12px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cal-h b{font-size:18px}
+.nav{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--acc)}
+.nav svg{width:22px;height:22px}
+.nav:disabled{opacity:.25}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
+.wd{font-size:13px;color:var(--sub);font-weight:650;padding-bottom:4px}
+.day{position:relative;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:16px}
+.day svg{position:absolute;inset:3px;width:calc(100% - 6px);height:calc(100% - 6px)}
+.day .t{fill:none;stroke:var(--track);stroke-width:3}
+.day .a{fill:none;stroke:#ff9500;stroke-width:3;stroke-linecap:round}
+.day span{position:relative}
+.day.today span{color:var(--acc);font-weight:800}
+.day.today::after{content:"";position:absolute;bottom:0;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--acc)}
+.day.full::before{content:"";position:absolute;inset:3px;border-radius:50%;background:linear-gradient(135deg,#ff9500,#ff2d55)}
+.day.full span{color:#fff;font-weight:750}
+.day:disabled{color:var(--sub);opacity:.45}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:13px;color:var(--sub);padding:0 4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:6px}
+.legend .lf{background:linear-gradient(135deg,#ff9500,#ff2d55)}
+.legend .lp{border:2.5px solid #ff9500;border-left-color:var(--track);border-bottom-color:var(--track)}
+.hint{padding:16px;margin-top:12px;font-size:15px}
+.hint p{margin:0 0 12px;color:var(--sub)}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:8px;padding:6px 16px calc(6px + env(safe-area-inset-bottom));background:var(--tab);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-top:1px solid var(--line);z-index:5}
+.tab{flex:0 1 150px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:50px;font-size:11px;font-weight:650;color:var(--sub)}
+.tab svg{width:26px;height:26px}
+.tab[aria-selected=true]{color:var(--acc)}
+#scrim,#scrim2{position:fixed;inset:0;background:var(--scrim);opacity:0;transition:opacity .25s;z-index:10}
+#scrim2{z-index:20}
+#scrim.on,#scrim2.on{opacity:1}
+#sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:600px;max-height:calc(100% - 44px - env(safe-area-inset-top));background:var(--bg);border-radius:22px 22px 0 0;transform:translateY(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1);z-index:11;display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(0,0,0,.12)}
+#sheet.on{transform:none}
+.sh-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px}
+.sh-h b{font-size:18px}
+.sh-h small{display:block;color:var(--sub);font-size:14px}
+.pill{min-height:40px;padding:0 16px;border-radius:20px;background:var(--card);font-weight:650;color:var(--acc);white-space:nowrap}
+.pill.solid{background:var(--acc);color:#fff}
+.pill:disabled{opacity:.4}
+.sh-body{overflow:auto;padding:4px 16px calc(28px + env(safe-area-inset-bottom));overscroll-behavior:contain}
+.list{margin-bottom:8px;overflow:hidden}
+.row{display:flex;align-items:center;gap:4px;padding:6px 8px 6px 12px}
+.row+.row,.row+.act,.act+.act{border-top:1px solid var(--line)}
+.nm{flex:1;display:flex;align-items:center;gap:12px;min-height:48px;text-align:left}
+.nm .badge{width:34px;height:34px}
+.nm .badge svg{width:20px;height:20px}
+.nt{display:flex;flex-direction:column}
+.nt b{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nt small{color:var(--sub);font-size:14px}
+.mv{width:40px;height:44px;display:grid;place-items:center;color:var(--sub)}
+.mv svg{width:20px;height:20px}
+.mv:disabled{opacity:.2}
+.act{display:flex;align-items:center;gap:10px;width:100%;padding:0 16px;min-height:50px;font-weight:650;color:var(--acc);text-align:left}
+.act svg{width:20px;height:20px}
+.act.red{color:#ff3b30}
+.sec{font-size:14px;color:var(--sub);margin:20px 6px 6px;font-weight:650}
+.note{font-size:13px;color:var(--sub);margin:6px 6px 0}
+.field{padding:14px 16px;margin-bottom:10px}
+.lb{display:block;font-size:14px;color:var(--sub);font-weight:650;margin-bottom:8px}
+.tx{width:100%;font:inherit;font-size:17px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea.tx{font-size:16px;min-height:96px;resize:vertical}
+.stepper{display:flex;gap:8px;align-items:center}
+.stepper .tx{text-align:center;font-weight:750;font-size:20px}
+.stepper .b{flex:0 0 52px}
+.presets{display:flex;gap:6px;margin-top:10px}
+.presets .b{height:38px;font-size:15px}
+.prev{display:grid;place-items:center;padding:10px 0 14px}
+.prev .badge{width:76px;height:76px}
+.prev .badge svg{width:42px;height:42px}
+.pick{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.pick.p5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.pick button{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;max-width:56px;width:100%;justify-self:center}
+.pick .ic{color:var(--cx);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.pick .ic.sel{background:var(--c);color:var(--on)}
+.pick .ic svg{width:56%;height:56%}
+.pick .co svg{width:46%;height:46%;color:#fff;stroke-width:3;opacity:0}
+.pick .co.sel{box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--ink)}
+.pick .co.sel svg{opacity:1}
+.restore{padding:14px 16px;margin-bottom:8px}
+.restore input[type=file]{font-size:14px;margin:10px 0;max-width:100%}
+#dlg{position:fixed;left:50%;top:32%;width:min(340px,calc(100% - 32px));padding:20px;z-index:21;opacity:0;transform:translate(-50%,-50%) scale(.95);transition:opacity .2s,transform .2s;pointer-events:none}
+#dlg.on{opacity:1;transform:translate(-50%,-50%);pointer-events:auto}
+#dlg b{font-size:18px}
+#dlg .tx{margin:12px 0 16px;font-size:28px;font-weight:750;text-align:center}
+.dlg-b{display:flex;gap:10px}
+.dlg-b .pill{flex:1;background:var(--bg)}
+.dlg-b .pill.solid{background:var(--acc)}
+#ctr{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));background:var(--c);background:linear-gradient(165deg,color-mix(in srgb,var(--c) 72%,#fff),var(--c) 60%);color:var(--on);touch-action:none;-webkit-user-select:none;user-select:none;cursor:pointer}
+#ctr[hidden]{display:none}
+.ctr-top{display:flex;justify-content:space-between}
+.cb{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.24);display:grid;place-items:center}
+.cb svg{width:22px;height:22px}
+.cb:disabled{opacity:.4}
+.ctr-mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ctr-name{font-size:18px;font-weight:700;opacity:.9}
+.ctr-n{font-size:clamp(120px,40vw,220px);font-weight:900;line-height:1;letter-spacing:-.04em;margin:4px 0 8px}
+.ctr-n.bump{animation:bump .16s}
+@keyframes bump{50%{transform:scale(1.07)}}
+.ctr-sub{font-size:20px;font-weight:650;opacity:.92}
+.ctr-hint{text-align:center;opacity:.8;margin:0 0 14px;font-size:15px}
+.ctr-save{width:100%;min-height:58px;border-radius:29px;background:#fff;color:var(--cx);font-weight:750;font-size:18px}
+#toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translate(-50%,16px);background:var(--toast);color:#fff;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:12px;min-height:52px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:25;width:max-content;max-width:calc(100% - 32px);font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+#toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#toast button{min-height:40px;padding:0 14px;border-radius:10px;color:#ffa45c;font-weight:750}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="wrap" id="view-today">
+  <header class="top"><h1>Today</h1><button class="icon-btn" data-act="ex-open" data-ic="sliders" aria-label="Edit exercises"></button></header>
+  <div class="warn" id="warn" hidden>Saving is blocked here, so counts reset when you close this page. The version you add to your Home Screen keeps them.</div>
+  <section class="card sum">
+    <div class="rings" id="rings"></div>
+    <div>
+      <div class="date" id="sum-date"></div>
+      <div class="pct r"><span id="sum-pct">0</span><small>%</small></div>
+      <div class="sum-line" id="sum-line"></div>
+      <div class="streak" id="sum-streak"></div>
+    </div>
+  </section>
+  <div id="today-cards"></div>
+</main>
+
+<main class="wrap" id="view-history" hidden>
+  <header class="top"><h1>History</h1></header>
+  <section class="tiles">
+    <div class="card tile" style="color:#ff9500"><i data-ic="flame" data-fill="1"></i><b class="r" id="st-cur" style="color:var(--ink)">0</b><span>Current streak</span></div>
+    <div class="card tile" style="color:#e0a800"><i data-ic="trophy"></i><b class="r" id="st-best" style="color:var(--ink)">0</b><span>Best streak</span></div>
+    <div class="card tile" style="color:#34c759"><i data-ic="seal"></i><b class="r" id="st-month" style="color:var(--ink)">0</b><span>Days this month</span></div>
+  </section>
+  <section class="card cal">
+    <div class="cal-h"><button class="nav" data-act="month" data-n="-1" data-ic="chevL" aria-label="Previous month"></button><b id="cal-title"></b><button class="nav" id="cal-next" data-act="month" data-n="1" data-ic="chevR" aria-label="Next month"></button></div>
+    <div class="grid" id="cal-grid"></div>
+  </section>
+  <div class="legend"><span><i class="lf"></i>All goals hit</span><span><i class="lp"></i>Partly done</span><span>Tap a day to view or fix it</span></div>
+  <section class="card hint" id="hist-hint" hidden>
+    <p>Your calendar fills in as you log days. To see how it looks with a few weeks of history, add some sample days. You can remove them later from Exercises.</p>
+    <button class="solid" data-act="sample">Add sample history</button>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button class="tab" data-act="tab" data-v="today" data-ic="today" aria-selected="true">Today</button>
+  <button class="tab" data-act="tab" data-v="history" data-ic="cal" aria-selected="false">History</button>
+</nav>
+
+<div id="scrim" hidden data-act="close"></div>
+<section id="sheet" hidden role="dialog" aria-modal="true"></section>
+
+<div id="scrim2" hidden data-act="dlg-x"></div>
+<form id="dlg" class="card" hidden>
+  <b id="dlg-t"></b>
+  <div class="note" style="margin:4px 0 0">Total reps for the day</div>
+  <input class="tx r" id="dlg-in" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Total reps">
+  <div class="dlg-b"><button type="button" class="pill" data-act="dlg-x">Cancel</button><button type="submit" class="pill solid">Save</button></div>
+</form>
+
+<div id="ctr" hidden>
+  <div class="ctr-top"><button class="cb" data-act="ctr-x" data-ic="x" aria-label="Discard set"></button><button class="cb" id="ctr-minus" data-act="ctr-minus" data-ic="minus" aria-label="Remove one rep"></button></div>
+  <div class="ctr-mid"><div class="ctr-name" id="ctr-name"></div><div class="ctr-n r" id="ctr-n">0</div><div class="ctr-sub r" id="ctr-sub"></div></div>
+  <p class="ctr-hint" id="ctr-hint">Tap anywhere for each rep</p>
+  <button class="ctr-save" id="ctr-save" data-act="ctr-save">Close</button>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+{
+const $ = s => document.querySelector(s);
+const KEY = 'dailyreps.v1';
+// colour: [fill, text on fill, text on tint]
+const COLORS = {orange:['#ff9500','#fff','#d97400'], pink:['#ff2d55','#fff','#f0244c'], red:['#ff3b30','#fff','#ec3027'], purple:['#af52de','#fff','#a344d4'], indigo:['#5856d6','#fff','#5452d4'], blue:['#007aff','#fff','#0a74ef'], teal:['#30b0c7','#fff','#1f95ab'], mint:['#00c7be','#fff','#00a59d'], green:['#34c759','#fff','#22a145'], yellow:['#ffcc00','#3d2f00','#a37c00']};
+const ICONS = {
+  pushup:'<circle cx="4.6" cy="9.6" r="2" fill="currentColor" stroke="none"/><path d="M7.5 11.2 21 17.5M8 11.6v5.9"/>',
+  situp:'<circle cx="7" cy="6.4" r="2" fill="currentColor" stroke="none"/><path d="M8.4 8.8 11 17l5.5-4.5L20 18M9 10.5l5 1.8"/>',
+  pullup:'<path d="M3 3.5h18M8 3.5 10 10m6-6.5L14 10m-4 0h4m-2 0v6m0 0-1.5 5m1.5-5 1.5 5"/><circle cx="12" cy="7.3" r="1.7" fill="currentColor" stroke="none"/>',
+  squat:'<circle cx="8" cy="4.5" r="2" fill="currentColor" stroke="none"/><path d="m9 7 2 6.5 5.5.5-1 6.5h3M9.6 8.6 17 9"/>',
+  lunge:'<circle cx="12" cy="4" r="2" fill="currentColor" stroke="none"/><path d="M12 6.6v6m0 0 5 2v5.5m-5-7.5-4 4.5L5 20m7-12-3 3m3-3 3 3"/>',
+  jack:'<circle cx="12" cy="4" r="2" fill="currentColor" stroke="none"/><path d="M12 6.6V14m0-6L6 4m6 4 6-4m-6 10-4.5 7m4.5-7 4.5 7"/>',
+  run:'<circle cx="14.5" cy="4" r="2" fill="currentColor" stroke="none"/><path d="m13.5 7-2.5 6m1.6-4.3L16 11.5m-3.4-2.8L9 10m2 3 3.5 3.5L13 21m-2-8-3 4-3.5-.5"/>',
+  dumbbell:'<path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"/>',
+  flame:'<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.3-5.2 3.6-7.6.4 1.6 1.2 2.6 2.4 3.2C11.3 7.2 12.8 4.4 15.5 3c-.4 3 1 4.7 2.2 6.6.8 1.3 1.3 2.8 1.3 4.6C19 18.2 16 21 12 21z"/>',
+  bolt:'<path d="M13 2.5 5 13.5h6l-1 8 9-11h-6z"/>',
+  heart:'<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  minus:'<path d="M5 12h14"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  tap:'<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.5" opacity=".55"/>',
+  sliders:'<path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  chevL:'<path d="m15 5-7 7 7 7"/>', chevR:'<path d="m9 5 7 7-7 7"/>', up:'<path d="m6 15 6-6 6 6"/>', down:'<path d="m6 9 6 6 6-6"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  today:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.2"/>',
+  cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4m8-4v4"/>',
+  trophy:'<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1.5A3 3 0 0 0 8 10.5M16 6h3v1.5a3 3 0 0 1-3 3M12 13v4m-3.5 3h7"/>',
+  seal:'<circle cx="12" cy="12" r="8.5"/><path d="m8 12.3 2.8 2.7L16 9.6"/>'
+};
+const EX_ICONS = ['pushup','situp','pullup','squat','lunge','jack','run','dumbbell','flame','bolt','heart','star'];
+const ic = (n, fill) => `<svg class="ico${fill ? ' fill' : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.dumbbell}</svg>`;
+
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const pad = n => String(n).padStart(2, '0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dateOf = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (k, n) => { const d = dateOf(k); d.setDate(d.getDate() + n); return keyOf(d); };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const incs = g => g < 15 ? [1, 2, 5] : g < 50 ? [1, 5, 10] : [1, 10, 25];
+const colorOf = e => COLORS[e.color] || COLORS.orange;
+const vars = e => { const [c, on, cx] = colorOf(e); return `--c:${c};--on:${on};--cx:${cx}`; };
+const defaults = () => [
+  {id: uid(), name: 'Push-ups', goal: 100, icon: 'pushup', color: 'orange', archived: false},
+  {id: uid(), name: 'Sit-ups', goal: 100, icon: 'situp', color: 'pink', archived: false},
+  {id: uid(), name: 'Pull-ups', goal: 10, icon: 'pullup', color: 'indigo', archived: false},
+  {id: uid(), name: 'Squats', goal: 100, icon: 'squat', color: 'teal', archived: false}
+];
+
+// ---- storage ----
+let storageOK = true;
+const valid = d => d && Array.isArray(d.exercises) && d.days && typeof d.days === 'object';
+function load() {
+  let raw = null;
+  try { localStorage.setItem('dailyreps.test', '1'); localStorage.removeItem('dailyreps.test'); raw = localStorage.getItem(KEY); }
+  catch (e) { storageOK = false; }
+  if (raw) {
+    try { const d = JSON.parse(raw); if (valid(d)) return d; } catch (e) {}
+    try { localStorage.setItem(KEY + '.unreadable.' + Date.now(), raw); } catch (e) {}
+  }
+  return {exercises: defaults(), days: {}};
+}
+let S = load();
+function save() {
+  if (!storageOK) return;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { storageOK = false; $('#warn').hidden = false; }
+}
+let askedPersist = false;
+function persistOnce() {
+  if (askedPersist) return; askedPersist = true;
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {}
+}
+
+// ---- queries ----
+let today = keyOf(new Date());
+const active = () => S.exercises.filter(e => !e.archived);
+const exOn = k => { const log = S.days[k]; return log ? S.exercises.filter(e => log.goals[e.id] != null) : active(); };
+const cnt = (e, k) => (S.days[k] && S.days[k].counts[e.id]) || 0;
+const goalOf = (e, k) => { const log = S.days[k]; return log && log.goals[e.id] != null ? log.goals[e.id] : e.goal; };
+const prog = (e, k) => Math.min(cnt(e, k) / Math.max(goalOf(e, k), 1), 1);
+const dayProg = k => { const l = exOn(k); return l.length ? l.reduce((s, e) => s + prog(e, k), 0) / l.length : 0; };
+const doneCount = k => exOn(k).filter(e => cnt(e, k) >= goalOf(e, k)).length;
+const complete = k => { const l = exOn(k); return l.length > 0 && l.every(e => cnt(e, k) >= goalOf(e, k)); };
+function streak() {
+  let k = today, n = 0;
+  if (!complete(k)) k = addDays(k, -1);
+  while (complete(k)) { n++; k = addDays(k, -1); }
+  return n;
+}
+function bestStreak() {
+  let b = 0, r = 0, prev = null;
+  for (const k of Object.keys(S.days).filter(complete).sort()) {
+    r = prev && addDays(prev, 1) === k ? r + 1 : 1;
+    b = Math.max(b, r); prev = k;
+  }
+  return b;
+}
+
+// ---- changes ----
+function newLog() { const goals = {}; active().forEach(e => { goals[e.id] = e.goal; }); return {counts: {}, goals}; }
+function setCount(e, k, v) {
+  const log = S.days[k] || (S.days[k] = newLog());
+  if (log.goals[e.id] == null) log.goals[e.id] = e.goal;
+  log.counts[e.id] = Math.max(0, Math.round(v) || 0);
+  delete log.sample;
+  save();
+}
+function addExercise(e) { S.exercises.push(e); if (S.days[today]) S.days[today].goals[e.id] = e.goal; save(); }
+function updateExercise(e) {
+  const i = S.exercises.findIndex(x => x.id === e.id); if (i < 0) return;
+  S.exercises[i] = e;
+  const log = S.days[today]; if (log && log.goals[e.id] != null) log.goals[e.id] = e.goal;
+  save();
+}
+function archiveExercise(id) {
+  const e = S.exercises.find(x => x.id === id); if (!e) return;
+  e.archived = true;
+  if (S.days[today]) delete S.days[today].goals[id];
+  save();
+}
+function moveExercise(id, dir) {
+  const list = active(), i = list.findIndex(e => e.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  S.exercises = list.concat(S.exercises.filter(e => e.archived));
+  save();
+}
+
+// ---- feedback ----
+function hap() {
+  try { if (navigator.vibrate) { navigator.vibrate(12); return; } } catch (e) {}
+  try { // iOS 18+: toggling a switch control gives a light tap
+    const l = document.createElement('label'), i = document.createElement('input');
+    i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i); l.style.display = 'none';
+    document.head.appendChild(l); l.click(); l.remove();
+  } catch (e) {}
+}
+let toastT, undoInfo = null;
+function toast(msg, undo) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button data-act="undo">Undo</button>' : ''}`;
+  t.classList.add('on'); clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('on'), 3800);
+}
+
+// ---- Today ----
+const cardHTML = (e, k, withCounter) => `
+<article class="card ex" data-id="${e.id}" data-day="${k}" style="${vars(e)}">
+  <div class="ex-top">
+    <span class="badge"><span class="i1">${ic(e.icon)}</span><span class="i2">${ic('check')}</span></span>
+    <div class="ex-name"><b>${esc(e.name)}</b><span class="left"></span></div>
+    <button class="num r" data-act="set" aria-label="Type a total for ${esc(e.name)}"><span class="n">0</span><span class="g"></span></button>
+  </div>
+  <div class="bar"><i></i></div>
+  <div class="btns">
+    <button class="b sq" data-act="add" data-n="-1" aria-label="Remove one">${ic('minus')}</button>
+    ${incs(e.goal).map(n => `<button class="b f r" data-act="add" data-n="${n}">+${n}</button>`).join('')}
+    ${withCounter ? `<button class="b sq tapb" data-act="count" aria-label="Count reps by tapping the screen">Tap</button>` : ''}
+  </div>
+</article>`;
+
+function renderToday() {
+  const list = active();
+  $('#today-cards').innerHTML = list.length ? list.map(e => cardHTML(e, today, true)).join('') :
+    `<div class="card empty"><b>No exercises yet</b><p>Add the exercises you want to hit every day.</p><button class="solid" data-act="ex-open">Add exercises</button></div>`;
+  const n = list.length || 1, w = Math.min(18, (60 - (n - 1) * 4) / n);
+  const rings = (list.length ? list : [{id: 'none', color: 'orange'}]).map((e, i) => {
+    const r = 94 - w / 2 - i * (w + 4), c = list.length ? colorOf(e)[0] : 'var(--sub)', C = (2 * Math.PI * r).toFixed(2);
+    return `<circle class="tr" cx="100" cy="100" r="${r}" style="stroke:${c};stroke-width:${w}px"/>` +
+      `<circle class="arc" data-id="${e.id}" data-c="${C}" cx="100" cy="100" r="${r}" transform="rotate(-90 100 100)" style="stroke:${c};stroke-width:${w}px;stroke-dasharray:0 ${C};opacity:0"/>`;
+  }).join('');
+  $('#rings').innerHTML = `<svg viewBox="0 0 200 200" role="img" aria-label="Progress rings">${rings}</svg><div class="ck">${ic('check')}</div>`;
+  $('#sum-date').textContent = dateOf(today).toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'});
+  paint();
+}
+
+let wasAll = null;
+function paintSummary() {
+  const list = exOn(today), done = doneCount(today), all = complete(today);
+  document.querySelectorAll('#rings .arc').forEach(a => {
+    const e = S.exercises.find(x => x.id === a.dataset.id); const p = e ? prog(e, today) : 0;
+    const C = +a.dataset.c;
+    a.style.strokeDasharray = `${(p * C).toFixed(2)} ${C}`;
+    a.style.opacity = p > 0 ? '1' : '0';
+  });
+  $('#rings').classList.toggle('all', all);
+  $('#sum-pct').textContent = Math.round(dayProg(today) * 100);
+  $('#sum-line').textContent = !list.length ? 'Nothing to track yet' : all ? 'All done. Nice work.' : `${done} of ${list.length} goals done`;
+  const s = streak(), st = $('#sum-streak');
+  st.className = 'streak' + (s ? '' : ' none');
+  st.innerHTML = s ? `${ic('flame', 1)}<span>${s}-day streak</span>` : `${ic('flame')}<span>Start a streak</span>`;
+  if (wasAll === false && all) { hap(); setTimeout(hap, 160); }
+  wasAll = all;
+}
+
+function paintCard(el) {
+  const e = S.exercises.find(x => x.id === el.dataset.id); if (!e) return;
+  const k = el.dataset.day, c = cnt(e, k), g = goalOf(e, k), done = c >= g;
+  el.querySelector('.n').textContent = c;
+  el.querySelector('.g').textContent = '/' + g;
+  el.querySelector('.left').textContent = done ? 'Goal reached' : `${g - c} to go`;
+  el.querySelector('.bar i').style.width = (Math.min(c / g, 1) * 100) + '%';
+  el.querySelector('[data-n="-1"]').disabled = c === 0;
+  el.classList.toggle('done', done);
+}
+
+function paint() {
+  document.querySelectorAll('.ex').forEach(paintCard);
+  paintSummary();
+  const ds = $('#day-sum');
+  if (ds) { const k = ds.dataset.day; ds.textContent = complete(k) ? 'All goals hit' : `${doneCount(k)} of ${exOn(k).length} goals hit`; }
+  if (!$('#view-history').hidden) renderHistory();
+}
+
+function change(card, n) {
+  const e = S.exercises.find(x => x.id === card.dataset.id), k = card.dataset.day;
+  const before = cnt(e, k), g = goalOf(e, k);
+  setCount(e, k, before + n);
+  persistOnce();
+  undoInfo = {id: e.id, k, prev: before};
+  paint();
+  if (before < g && before + n >= g) {
+    card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop'); hap(); setTimeout(hap, 120);
+  } else hap();
+  if (n > 1) toast(`+${n} ${e.name.toLowerCase()}`, true);
+}
+
+// ---- History ----
+let hm = {y: dateOf(today).getFullYear(), m: dateOf(today).getMonth()};
+function renderHistory() {
+  const first = new Date(hm.y, hm.m, 1), days = new Date(hm.y, hm.m + 1, 0).getDate();
+  const isNow = hm.y === dateOf(today).getFullYear() && hm.m === dateOf(today).getMonth();
+  $('#cal-title').textContent = first.toLocaleDateString(undefined, {month: 'long', year: 'numeric'});
+  $('#cal-next').disabled = isNow;
+  const wd = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => `<div class="wd">${d}</div>`).join('');
+  let cells = '', monthDone = 0;
+  for (let i = 0; i < first.getDay(); i++) cells += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const k = keyOf(new Date(hm.y, hm.m, d)), fut = k > today, full = !fut && complete(k), p = fut ? 0 : dayProg(k);
+    if (full) monthDone++;
+    const ring = !full && p > 0 ? `<svg viewBox="0 0 36 36"><circle class="t" cx="18" cy="18" r="15.5"/><circle class="a" cx="18" cy="18" r="15.5" stroke-dasharray="${(p * 97.39).toFixed(1)} 97.39" transform="rotate(-90 18 18)"/></svg>` : '';
+    cells += `<button class="day r${full ? ' full' : ''}${k === today ? ' today' : ''}" data-act="day" data-k="${k}"${fut ? ' disabled' : ''} aria-label="${dateOf(k).toLocaleDateString(undefined, {month: 'long', day: 'numeric'})}${full ? ', all goals hit' : p > 0 ? ', partly done' : ''}">${ring}<span>${d}</span></button>`;
+  }
+  $('#cal-grid').innerHTML = wd + cells;
+  $('#st-cur').textContent = streak();
+  $('#st-best').textContent = bestStreak();
+  $('#st-month').textContent = monthDone;
+  $('#hist-hint').hidden = Object.keys(S.days).length > 3;
+}
+
+// ---- sheets ----
+const sheet = $('#sheet'), scrim = $('#scrim');
+function showSheet(html) {
+  sheet.innerHTML = html;
+  if (sheet.hidden) {
+    scrim.hidden = false; sheet.hidden = false; void sheet.offsetHeight;
+    scrim.classList.add('on'); sheet.classList.add('on'); document.body.classList.add('lock');
+  }
+  const body = sheet.querySelector('.sh-body'); if (body) body.scrollTop = 0;
+}
+function closeSheet() {
+  scrim.classList.remove('on'); sheet.classList.remove('on'); document.body.classList.remove('lock');
+  setTimeout(() => { if (!sheet.classList.contains('on')) { scrim.hidden = true; sheet.hidden = true; sheet.innerHTML = ''; } }, 340);
+  renderToday();
+}
+
+function openDay(k) {
+  const label = dateOf(k).toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric'});
+  showSheet(`<header class="sh-h"><div><b>${label}</b><small id="day-sum" data-day="${k}"></small></div><button class="pill" data-act="close">Done</button></header>
+    <div class="sh-body">${exOn(k).map(e => cardHTML(e, k, false)).join('')}<p class="note">Changes save as you tap.</p></div>`);
+  paint();
+}
+
+let confirmKey = null;
+const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+function openExercises() {
+  confirmKey = null;
+  const list = active(), hasSample = Object.values(S.days).some(d => d.sample);
+  showSheet(`<header class="sh-h"><b>Exercises</b><button class="pill" data-act="close">Done</button></header>
+  <div class="sh-body">
+    <div class="card list">
+      ${list.map((e, i) => `<div class="row" style="${vars(e)}">
+        <button class="nm" data-act="ex-edit" data-id="${e.id}"><span class="badge">${ic(e.icon)}</span><span class="nt"><b>${esc(e.name)}</b><small class="r">${e.goal} a day</small></span></button>
+        <button class="mv" data-act="ex-mv" data-id="${e.id}" data-n="-1"${i === 0 ? ' disabled' : ''} aria-label="Move ${esc(e.name)} up">${ic('up')}</button>
+        <button class="mv" data-act="ex-mv" data-id="${e.id}" data-n="1"${i === list.length - 1 ? ' disabled' : ''} aria-label="Move ${esc(e.name)} down">${ic('down')}</button>
+      </div>`).join('')}
+      <button class="act" data-act="ex-new">${ic('plus')}Add exercise</button>
+    </div>
+    <p class="note">Goal changes count from today on. Past days keep the goals they had.</p>
+    <div class="sec">Backup</div>
+    <div class="card list">
+      <button class="act" data-act="bk-copy">Copy backup</button>
+      ${framed ? '' : '<button class="act" data-act="bk-file">Save backup file</button>'}
+      <button class="act" data-act="bk-restore">Restore from a backup</button>
+    </div>
+    <div class="card restore" id="restore" hidden>
+      <label class="lb" for="rs-text">Paste a backup, or choose a backup file</label>
+      <textarea class="tx" id="rs-text" placeholder='{"exercises":[...],"days":{...}}'></textarea>
+      <input type="file" id="rs-file" accept=".json,application/json,text/plain">
+      <button class="solid" data-act="rs-go">Replace my data with this backup</button>
+    </div>
+    <p class="note">Your numbers are stored only on this phone. Save a backup now and then.</p>
+    <div class="sec">Testing</div>
+    <div class="card list">
+      <button class="act" data-act="sample">${hasSample ? 'Remove sample history' : 'Add 3 weeks of sample history'}</button>
+      <button class="act red" data-act="erase" id="erase">Erase all data</button>
+    </div>
+  </div>`);
+}
+
+let ed = null;
+function openEditor(id) {
+  confirmKey = null;
+  const src = id ? S.exercises.find(x => x.id === id) : {id: uid(), name: '', goal: 50, icon: 'dumbbell', color: 'blue', archived: false};
+  ed = Object.assign({}, src, {isNew: !id});
+  showSheet(`<header class="sh-h"><button class="pill" data-act="ex-open">Cancel</button><b>${ed.isNew ? 'New exercise' : 'Edit exercise'}</b><button class="pill solid" data-act="ed-save" id="ed-save">${ed.isNew ? 'Add' : 'Save'}</button></header>
+  <div class="sh-body" id="ed-body">
+    <div class="prev"><span class="badge" id="ed-prev"></span></div>
+    <div class="card field"><label class="lb" for="ed-name">Name</label><input class="tx" id="ed-name" value="${esc(ed.name)}" placeholder="e.g. Lunges" autocomplete="off" maxlength="30"></div>
+    <div class="card field"><label class="lb" for="ed-goal">Daily goal</label>
+      <div class="stepper"><button class="b sq" data-act="ed-step" data-n="-1" aria-label="Lower goal">${ic('minus')}</button><input class="tx r" id="ed-goal" inputmode="numeric" pattern="[0-9]*" value="${ed.goal}" autocomplete="off"><button class="b sq" data-act="ed-step" data-n="1" aria-label="Raise goal">${ic('plus')}</button></div>
+      <div class="presets">${[10, 20, 50, 100, 200].map(p => `<button class="b r" data-act="ed-preset" data-n="${p}">${p}</button>`).join('')}</div>
+    </div>
+    <div class="card field"><span class="lb">Icon</span><div class="pick">${EX_ICONS.map(n => `<button class="ic" data-act="ed-icon" data-v="${n}" aria-label="${n} icon">${ic(n)}</button>`).join('')}</div></div>
+    <div class="card field"><span class="lb">Color</span><div class="pick p5">${Object.keys(COLORS).map(n => `<button class="co" data-act="ed-color" data-v="${n}" style="background:${COLORS[n][0]}" aria-label="${n}">${ic('check')}</button>`).join('')}</div></div>
+    ${ed.isNew ? '' : `<div class="card list"><button class="act red" data-act="ed-del" id="ed-del">Delete exercise</button></div><p class="note">Past days that included it keep their numbers.</p>`}
+  </div>`);
+  paintEditor();
+}
+function paintEditor() {
+  const body = $('#ed-body'); if (!body || !ed) return;
+  body.setAttribute('style', vars(ed));
+  $('#ed-prev').innerHTML = ic(ed.icon);
+  body.querySelectorAll('[data-act=ed-icon]').forEach(b => b.classList.toggle('sel', b.dataset.v === ed.icon));
+  body.querySelectorAll('[data-act=ed-color]').forEach(b => b.classList.toggle('sel', b.dataset.v === ed.color));
+  body.querySelectorAll('[data-act=ed-preset]').forEach(b => b.classList.toggle('f', +b.dataset.n === ed.goal));
+  $('#ed-save').disabled = !ed.name.trim() || !(ed.goal > 0);
+}
+
+// ---- tap counter ----
+const ctrEl = $('#ctr');
+let ctr = null, wake = null;
+function openCounter(e, k) {
+  ctr = {e, k, reps: 0, armed: false};
+  ctrEl.setAttribute('style', vars(e));
+  $('#ctr-name').textContent = e.name;
+  paintCounter(); ctrEl.hidden = false;
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { wake = l; }).catch(() => {}); } catch (x) {}
+}
+function closeCounter() {
+  ctrEl.hidden = true; ctr = null;
+  try { if (wake) wake.release(); } catch (x) {}
+  wake = null;
+}
+function paintCounter() {
+  const n = $('#ctr-n');
+  n.textContent = ctr.reps;
+  $('#ctr-sub').textContent = `${cnt(ctr.e, ctr.k) + ctr.reps} of ${goalOf(ctr.e, ctr.k)} today`;
+  $('#ctr-save').textContent = ctr.reps ? `Save ${ctr.reps} rep${ctr.reps === 1 ? '' : 's'}` : 'Close';
+  $('#ctr-minus').disabled = !ctr.reps;
+  $('#ctr-hint').textContent = ctr.armed ? 'Tap the X again to throw this set away' : 'Tap anywhere for each rep';
+}
+ctrEl.addEventListener('pointerdown', ev => {
+  if (!ctr || ev.target.closest('button')) return;
+  ev.preventDefault();
+  ctr.reps++; ctr.armed = false; paintCounter();
+  const n = $('#ctr-n'); n.classList.remove('bump'); void n.offsetWidth; n.classList.add('bump');
+  hap();
+  if (cnt(ctr.e, ctr.k) + ctr.reps === goalOf(ctr.e, ctr.k)) setTimeout(hap, 140);
+});
+
+// ---- set-count dialog ----
+const dlg = $('#dlg'), scrim2 = $('#scrim2');
+let dlgCard = null;
+function openDialog(card) {
+  const e = S.exercises.find(x => x.id === card.dataset.id);
+  dlgCard = card;
+  $('#dlg-t').textContent = e.name;
+  const input = $('#dlg-in'); input.value = cnt(e, card.dataset.day);
+  scrim2.hidden = false; dlg.hidden = false; void dlg.offsetHeight;
+  scrim2.classList.add('on'); dlg.classList.add('on');
+  input.focus(); input.select();
+}
+function closeDialog() {
+  scrim2.classList.remove('on'); dlg.classList.remove('on');
+  setTimeout(() => { if (!dlg.classList.contains('on')) { scrim2.hidden = true; dlg.hidden = true; } }, 220);
+  dlgCard = null;
+}
+dlg.addEventListener('submit', ev => {
+  ev.preventDefault();
+  const v = parseInt($('#dlg-in').value, 10);
+  if (dlgCard && v >= 0) {
+    const e = S.exercises.find(x => x.id === dlgCard.dataset.id), k = dlgCard.dataset.day;
+    undoInfo = {id: e.id, k, prev: cnt(e, k)};
+    setCount(e, k, v); persistOnce(); paint();
+    toast(`${e.name} set to ${v}`, true);
+  }
+  closeDialog();
+});
+
+// ---- backup ----
+function backupText() { return JSON.stringify({app: 'Daily Reps', saved: new Date().toISOString(), exercises: S.exercises, days: S.days}); }
+function restoreFrom(text) {
+  let d = null;
+  try { d = JSON.parse(text); } catch (e) {}
+  if (!valid(d)) { toast("That doesn't look like a Daily Reps backup"); return; }
+  S = {exercises: d.exercises, days: d.days}; save();
+  closeSheet(); toast('Backup restored');
+}
+function addSample() {
+  if (Object.values(S.days).some(d => d.sample)) {
+    Object.keys(S.days).forEach(k => { if (S.days[k].sample) delete S.days[k]; });
+    save(); toast('Sample history removed'); return;
+  }
+  let seed = 7; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  for (let i = 1; i <= 21; i++) {
+    const k = addDays(today, -i); if (S.days[k]) continue;
+    const r = rnd(); if (r > 0.9) continue;
+    const log = newLog(); log.sample = true;
+    active().forEach(e => { log.counts[e.id] = r < 0.72 ? e.goal : Math.round(e.goal * (0.3 + rnd() * 0.8)); });
+    S.days[k] = log;
+  }
+  save(); toast('Added sample days');
+}
+
+// ---- events ----
+document.querySelectorAll('[data-ic]').forEach(el => el.insertAdjacentHTML('afterbegin', ic(el.dataset.ic, el.dataset.fill)));
+
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-act]'); if (!b || b.disabled) return;
+  const act = b.dataset.act, card = b.closest('.ex');
+  switch (act) {
+    case 'add': change(card, +b.dataset.n); break;
+    case 'set': openDialog(card); break;
+    case 'count': openCounter(S.exercises.find(x => x.id === card.dataset.id), card.dataset.day); break;
+    case 'undo':
+      if (undoInfo) { const e = S.exercises.find(x => x.id === undoInfo.id); if (e) { setCount(e, undoInfo.k, undoInfo.prev); paint(); } undoInfo = null; }
+      $('#toast').classList.remove('on'); break;
+    case 'tab': {
+      const v = b.dataset.v;
+      $('#view-today').hidden = v !== 'today'; $('#view-history').hidden = v !== 'history';
+      document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t === b)));
+      if (v === 'history') renderHistory();
+      window.scrollTo(0, 0); break;
+    }
+    case 'month': {
+      const d = new Date(hm.y, hm.m + +b.dataset.n, 1); hm = {y: d.getFullYear(), m: d.getMonth()}; renderHistory(); break;
+    }
+    case 'day': openDay(b.dataset.k); break;
+    case 'close': closeSheet(); break;
+    case 'ex-open': openExercises(); break;
+    case 'ex-edit': openEditor(b.dataset.id); break;
+    case 'ex-new': openEditor(null); break;
+    case 'ex-mv': {
+      const st = sheet.querySelector('.sh-body').scrollTop;
+      moveExercise(b.dataset.id, +b.dataset.n); openExercises(); renderToday();
+      sheet.querySelector('.sh-body').scrollTop = st; break;
+    }
+    case 'ed-step': {
+      const step = ed.goal >= 50 ? 5 : 1;
+      ed.goal = Math.max(1, Math.min(10000, (ed.goal || 0) + step * +b.dataset.n));
+      $('#ed-goal').value = ed.goal; paintEditor(); break;
+    }
+    case 'ed-preset': ed.goal = +b.dataset.n; $('#ed-goal').value = ed.goal; paintEditor(); break;
+    case 'ed-icon': ed.icon = b.dataset.v; paintEditor(); break;
+    case 'ed-color': ed.color = b.dataset.v; paintEditor(); break;
+    case 'ed-save': {
+      const e = {id: ed.id, name: ed.name.trim(), goal: ed.goal, icon: ed.icon, color: ed.color, archived: false};
+      if (ed.isNew) addExercise(e); else updateExercise(e);
+      renderToday(); openExercises(); break;
+    }
+    case 'ed-del':
+      if (confirmKey !== 'del') { confirmKey = 'del'; b.textContent = 'Tap again to delete'; break; }
+      archiveExercise(ed.id); renderToday(); openExercises(); break;
+    case 'bk-copy':
+      try { navigator.clipboard.writeText(backupText()).then(() => toast('Backup copied. Paste it into Notes or an email to yourself.'), () => toast('Copy was blocked here')); }
+      catch (e) { toast('Copy was blocked here'); }
+      break;
+    case 'bk-file': {
+      try {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([backupText()], {type: 'application/json'}));
+        a.download = `daily-reps-backup-${today}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      } catch (e) { toast('Saving files is blocked here. Use Copy backup.'); }
+      break;
+    }
+    case 'bk-restore': { const r = $('#restore'); r.hidden = !r.hidden; break; }
+    case 'rs-go': restoreFrom($('#rs-text').value); break;
+    case 'sample': addSample(); if (!sheet.hidden) openExercises(); renderToday(); renderHistory(); break;
+    case 'erase':
+      if (confirmKey !== 'erase') { confirmKey = 'erase'; b.textContent = 'Tap again to erase everything'; break; }
+      S = {exercises: defaults(), days: {}}; save(); closeSheet(); toast('All data erased'); break;
+    case 'ctr-minus': if (ctr && ctr.reps) { ctr.reps--; paintCounter(); hap(); } break;
+    case 'ctr-x':
+      if (ctr && ctr.reps && !ctr.armed) { ctr.armed = true; paintCounter(); break; }
+      closeCounter(); break;
+    case 'ctr-save':
+      if (ctr && ctr.reps) {
+        const {e, k, reps} = ctr, before = cnt(e, k);
+        undoInfo = {id: e.id, k, prev: before};
+        setCount(e, k, before + reps); persistOnce();
+        toast(`Saved ${reps} ${e.name.toLowerCase()}`, true);
+      }
+      closeCounter(); paint(); break;
+    case 'dlg-x': closeDialog(); break;
+  }
+});
+
+document.addEventListener('input', ev => {
+  if (!ed) return;
+  if (ev.target.id === 'ed-name') { ed.name = ev.target.value; paintEditor(); }
+  if (ev.target.id === 'ed-goal') { const v = parseInt(ev.target.value, 10); ed.goal = v > 0 ? Math.min(v, 10000) : 0; paintEditor(); }
+});
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'rs-file' || !ev.target.files[0]) return;
+  ev.target.files[0].text().then(t => { $('#rs-text').value = t; });
+});
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape') return;
+  if (!dlg.hidden) closeDialog(); else if (ctr) closeCounter(); else if (!sheet.hidden) closeSheet();
+});
+
+function checkDay() {
+  const k = keyOf(new Date());
+  if (k === today) return;
+  today = k; wasAll = null; renderToday();
+  if (!$('#view-history').hidden) renderHistory();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
+setInterval(checkDay, 30000);
+
+if (!storageOK) $('#warn').hidden = false;
+renderToday();
+// Offline support when installed from GitHub Pages
+if ('serviceWorker' in navigator && !framed && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+}
+</script>
+</body>
+</html>
